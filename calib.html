@@ -83,7 +83,7 @@ function store(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}}
 
 fetch('index.html',{cache:'no-store'}).then(function(r){return r.text();}).then(function(h){
   var m=/var VERSE_T=\{([^}]*)\}/.exec(h);if(!m)throw new Error('no VERSE_T');
-  var re=/(\d+):\["([^"]+)",([\d.]+),([\d.]+)\]/g,x;
+  var re=/(\d+):\["([^"]+)",([\d.]+),([\d.]+)(?:,[\d.]+)?\]/g,x;
   while((x=re.exec(m[1])))VT[+x[1]]=[x[2],+x[3],+x[4]];
   var re2=/\[(\d+),'([^']+)','([^']+)'/g;
   while((x=re2.exec(h))){var n=+x[1];if(n>=1&&n<=61&&!TXT[n]&&/[ء-ي]/.test(x[2]))TXT[n]=[x[2],x[3]];}
