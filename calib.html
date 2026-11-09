@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ضبط مواضع الأبيات في التلاوات</title>
+<style>
+:root{--navy:#14213d;--gold:#c9a227;--bg:#f6f1e7;--muted:#6b6b6b;--ok:#2e7d32;--bad:#c62828;--mint:#cdeedd}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",sans-serif;background:var(--bg);color:#222;line-height:1.7;-webkit-tap-highlight-color:transparent}
+header{background:var(--navy);color:#fff;padding:14px 16px;text-align:center}
+header h1{margin:0;font-size:1.15rem}header p{margin:2px 0 0;color:#e8d9a8;font-size:.85rem}
+main{max-width:640px;margin:0 auto;padding:12px}
+.card{background:#fff;border-radius:14px;padding:12px 14px;margin:10px 0;box-shadow:0 2px 10px rgba(20,33,61,.07)}
+h2{font-size:1rem;margin:0 0 6px;color:var(--navy)}
+.muted{color:var(--muted);font-size:.86rem}
+button{font-family:inherit;font-size:1rem;border:0;border-radius:12px;padding:10px 16px;cursor:pointer;background:var(--navy);color:#fff}
+button.gold{background:var(--gold);color:var(--navy);font-weight:700}
+button.ghost{background:#fff;color:var(--navy);border:1.5px solid #d9cfb5}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.clips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.clips button{padding:8px 4px;font-size:.85rem;background:#fff;color:var(--navy);border:1.5px solid #d9cfb5}
+.clips button.done{background:var(--mint);border-color:#7cc4a0}
+.clips button.cur{outline:3px solid var(--gold)}
+.vlist{list-style:none;margin:6px 0 0;padding:0}
+.vlist li{padding:8px 10px;border-radius:10px;margin:4px 0;font-size:1.15rem;display:flex;gap:8px;align-items:baseline}
+.vlist li .n{font-weight:700;color:var(--gold);min-width:26px}
+.vlist li .t{flex:1}
+.vlist li .tm{font-size:.78rem;color:var(--muted);direction:ltr}
+.vlist li.now{background:#fff6d6;outline:2px solid var(--gold)}
+.vlist li.got{background:#eef8f2}
+.big{width:100%;padding:22px 10px;font-size:1.25rem;border-radius:16px;margin-top:10px;position:sticky;bottom:10px;z-index:5;box-shadow:0 6px 18px rgba(20,33,61,.25)}
+.clock{font-variant-numeric:tabular-nums;direction:ltr;font-size:.9rem;color:var(--muted)}
+pre{background:#14213d;color:#f6e7b4;padding:10px;border-radius:10px;direction:ltr;text-align:left;overflow:auto;font-size:.75rem;white-space:pre-wrap;max-height:220px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header><h1>ضبط مواضع الأبيات في التلاوات</h1><p>اضغطي عند بداية كل بيت ونهايته وأنتِ تسمعين</p></header>
+<main>
+<div class="card">
+  <h2>الطريقة</h2>
+  <p class="muted">١) اختاري مقطعًا ← «شغّلي المقطع». ٢) أول ما يبدأ الشيخ البيت المظلّل اضغطي الزر الأصفر الكبير. ٣) إذا قرأ الشيخ بعد البيت عنوان باب أو كلامًا آخر، اضغطي «انتهى البيت» عند آخر البيت؛ وإلا فلا داعي، فبداية البيت التالي تُنهي ما قبله. ٤) جرّبي النتيجة، ثم انتقلي للمقطع التالي. تقدّمكِ يُحفظ تلقائيًا.</p>
+  <div class="clips" id="clips"></div>
+</div>
+
+<div class="card hide" id="work">
+  <div class="row" style="justify-content:space-between"><h2 id="ttl"></h2><span class="clock" id="clock">0.0</span></div>
+  <ul class="vlist" id="vl"></ul>
+  <div class="row">
+    <button id="play" class="ghost">▶ شغّلي المقطع</button>
+    <label class="muted"><input type="checkbox" id="slow"> أبطأ قليلًا</label>
+  </div>
+  <button id="mark" class="gold big" disabled>بدأ البيت</button>
+  <div class="row">
+    <button id="end" class="ghost" disabled>■ انتهى البيت (بعده عنوان أو فاصل)</button>
+  </div>
+  <div class="row">
+    <button id="test" class="ghost" disabled>🎧 جرّبي النتيجة</button>
+    <button id="redo" class="ghost">↺ أعيدي هذا المقطع</button>
+    <button id="nextc" class="ghost">المقطع التالي ‹</button>
+  </div>
+  <p class="muted" id="msg"></p>
+</div>
+
+<div class="card">
+  <h2>النتيجة</h2>
+  <p class="muted" id="sum"></p>
+  <div class="row"><button id="copy" class="gold">انسخي النتيجة وأرسليها لـClaude</button><span id="cm" class="muted"></span></div>
+  <pre id="out"></pre>
+</div>
+</main>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);};
+var AR='٠١٢٣٤٥٦٧٨٩';function ar(n){return String(n).replace(/\d/g,function(d){return AR[d];});}
+var LAG=0.25;          /* زمن ردّ الفعل يُطرح من كل ضغطة */
+var KEY='qitar-calib-v1';
+var VT={},TXT={},CLIPS=[],save={},ci=-1,audio=null,marks=[],ends={},vi=0,timer=null;
+try{save=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){save={};}
+function store(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}}
+
+fetch('index.html',{cache:'no-store'}).then(function(r){return r.text();}).then(function(h){
+  var m=/var VERSE_T=\{([^}]*)\}/.exec(h);if(!m)throw new Error('no VERSE_T');
+  var re=/(\d+):\["([^"]+)",([\d.]+),([\d.]+)\]/g,x;
+  while((x=re.exec(m[1])))VT[+x[1]]=[x[2],+x[3],+x[4]];
+  var re2=/\[(\d+),'([^']+)','([^']+)'/g;
+  while((x=re2.exec(h))){var n=+x[1];if(n>=1&&n<=61&&!TXT[n]&&/[ء-ي]/.test(x[2]))TXT[n]=[x[2],x[3]];}
+  var by={};Object.keys(VT).forEach(function(v){var f=VT[v][0];(by[f]=by[f]||[]).push(+v);});
+  CLIPS=Object.keys(by).sort().map(function(f){return {f:f,vs:by[f].sort(function(a,b){return a-b;})};});
+  drawClips();out();
+}).catch(function(e){$('sum').textContent='تعذّر تحميل بيانات الموقع: '+e.message;});
+
+function drawClips(){
+  var c=$('clips');c.innerHTML='';
+  CLIPS.forEach(function(k,i){
+    var b=document.createElement('button');b.textContent=ar(k.vs[0])+'–'+ar(k.vs[k.vs.length-1]);
+    if(save[k.f])b.classList.add('done');if(i===ci)b.classList.add('cur');
+    b.onclick=function(){open(i);};c.appendChild(b);
+  });
+  var d=CLIPS.filter(function(k){return save[k.f];}).length;
+  $('sum').textContent='ضُبط '+ar(d)+' من '+ar(CLIPS.length)+' مقطعًا. المقاطع غير المضبوطة تبقى على مواضعها الحالية.';
+}
+function open(i){
+  stopAudio();ci=i;var k=CLIPS[i];marks=[];ends={};vi=0;
+  $('work').classList.remove('hide');$('ttl').textContent='المقطع: الأبيات '+ar(k.vs[0])+'–'+ar(k.vs[k.vs.length-1]);
+  $('msg').textContent=save[k.f]?'هذا المقطع مضبوط ✓ يمكنكِ تجربته أو إعادته.':'';
+  $('test').disabled=!save[k.f];drawList();drawClips();btns();
+  $('work').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function drawList(){
+  var k=CLIPS[ci],vl=$('vl');vl.innerHTML='';var S=save[k.f];
+  k.vs.forEach(function(v,j){
+    var li=document.createElement('li');
+    li.innerHTML='<span class="n">'+ar(v)+'</span><span class="t"></span><span class="tm"></span>';
+    var tt=li.querySelector('.t'),T=TXT[v]||['',''];var h1=document.createElement('div'),h2=document.createElement('div');h1.textContent=T[0];h2.textContent=T[1];h2.style.paddingInlineStart='1.2em';tt.appendChild(h1);tt.appendChild(h2);
+    var st=marks[j]!=null?marks[j]:(S?S[v][0]:null),en=S&&marks[j]==null?S[v][1]:null;
+    if(st!=null)li.querySelector('.tm').textContent=st.toFixed(1)+(en!=null?'–'+en.toFixed(1):'');
+    if(marks[j]!=null)li.classList.add('got');
+    if(audio&&j===vi)li.classList.add('now');
+    vl.appendChild(li);
+  });
+}
+function btns(){
+  var k=CLIPS[ci],playing=!!audio;
+  $('mark').disabled=!playing||vi>=k.vs.length;
+  $('mark').textContent=vi<k.vs.length?'بدأ البيت '+ar(k.vs[vi]):'تم ✓';
+  var last=vi-1;
+  $('end').disabled=!playing||last<0||ends[last]!=null;
+  $('end').textContent=last>=0?'■ انتهى البيت '+ar(k.vs[last])+' (بعده عنوان أو فاصل)':'■ انتهى البيت';
+  $('play').textContent=playing?'■ أوقفي':'▶ شغّلي المقطع';
+}
+function stopAudio(){if(audio){audio.onended=null;audio.pause();audio=null;}clearInterval(timer);}
+$('play').onclick=function(){
+  if(audio){stopAudio();btns();drawList();return;}
+  var k=CLIPS[ci];marks=[];ends={};vi=0;
+  audio=new Audio('audio/'+k.f);audio.playbackRate=$('slow').checked?0.8:1;
+  audio.onended=finish;
+  audio.play().catch(function(){$('msg').textContent='تعذّر التشغيل';});
+  timer=setInterval(function(){if(audio)$('clock').textContent=audio.currentTime.toFixed(1);},100);
+  $('msg').textContent='استمعي، واضغطي الزر الأصفر عند بداية البيت المظلّل.';
+  btns();drawList();
+};
+function now(){return Math.max(0,audio.currentTime-LAG*(audio.playbackRate||1));}
+$('mark').onclick=function(){
+  if(!audio)return;marks[vi]=now();vi++;btns();drawList();
+  if(navigator.vibrate)navigator.vibrate(30);
+};
+$('end').onclick=function(){if(!audio)return;ends[vi-1]=now();btns();if(navigator.vibrate)navigator.vibrate([20,40,20]);};
+function finish(){
+  var k=CLIPS[ci],D=audio?audio.duration:0;stopAudio();
+  if(marks.length<k.vs.length){$('msg').textContent='انتهى المقطع قبل أن تضغطي لكل الأبيات ('+ar(marks.length)+' من '+ar(k.vs.length)+'). اضغطي «شغّلي المقطع» لإعادته.';btns();drawList();return;}
+  var S={};
+  k.vs.forEach(function(v,j){
+    var st=marks[j],en=ends[j]!=null?ends[j]+0.2:(j+1<k.vs.length?marks[j+1]:D);
+    S[v]=[+Math.max(0,st-0.1).toFixed(2),+en.toFixed(2)];
+  });
+  save[k.f]=S;store();
+  $('msg').textContent='تم ضبط المقطع ✓ جرّبيه، ثم انتقلي للتالي.';$('test').disabled=false;
+  drawList();drawClips();btns();out();
+}
+$('test').onclick=function(){
+  stopAudio();var k=CLIPS[ci],S=save[k.f];if(!S)return;var j=0;
+  var a=new Audio('audio/'+k.f);audio=a;btns();
+  function seg(){
+    if(j>=k.vs.length){stopAudio();btns();drawList();return;}
+    var v=k.vs[j],s=S[v];vi=j;drawList();
+    a.currentTime=s[0];a.play();
+    clearInterval(timer);timer=setInterval(function(){$('clock').textContent=a.currentTime.toFixed(1);if(a.currentTime>=s[1]){a.pause();clearInterval(timer);j++;setTimeout(seg,700);}},50);
+  }
+  $('msg').textContent='تجربة: يشغّل كل بيت وحده مع فاصل قصير بين الأبيات.';
+  if(a.readyState>=1)seg();else a.addEventListener('loadedmetadata',seg,{once:true});
+};
+$('redo').onclick=function(){var k=CLIPS[ci];delete save[k.f];store();open(ci);out();};
+$('nextc').onclick=function(){if(ci+1<CLIPS.length)open(ci+1);};
+
+function out(){
+  var R={};Object.keys(VT).forEach(function(v){R[v]=VT[v].slice();});
+  CLIPS.forEach(function(k){var S=save[k.f];if(S)k.vs.forEach(function(v){R[v]=[k.f,S[v][0],S[v][1]];});});
+  var done=CLIPS.filter(function(k){return save[k.f];}).map(function(k){return k.f;});
+  $('out').textContent='// مضبوط: '+done.length+' مقطع\n'+Object.keys(R).sort(function(a,b){return a-b;}).map(function(v){return v+':["'+R[v][0]+'",'+R[v][1]+','+R[v][2]+']';}).join(',\n');
+}
+$('copy').onclick=function(){navigator.clipboard.writeText($('out').textContent).then(function(){$('cm').textContent='نُسخت ✓';},function(){$('cm').textContent='انسخيها يدويًا من المربع';});};
+})();
+</script>
+</body>
+</html>
